@@ -2,6 +2,10 @@
 
 **CoSesión** es una aplicación web (instalable como PWA en celular) pensada para psicopedagogos, psicólogos y centros interdisciplinarios (como *Integrarte*).
 
+## Demo
+
+La aplicación está publicada en [GitHub Pages](https://renzoleporace.github.io/CoSession/).
+
 ## Funcionalidades principales
 
 - **Horarios exactos al minuto**: Agendá turnos en cualquier minuto (por ejemplo `16:20`), sin grilla fija cada 30 minutos.
