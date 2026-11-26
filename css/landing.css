@@ -1,0 +1,410 @@
+/* ===== COSESIÓN LANDING PAGE – DARK FOREST HERO + BOTANICAL BENTO ===== */
+
+.cs-landing {
+  min-height: 100vh;
+  background: var(--bg-cream);
+}
+
+/* --- Top Dark Forest Zone (Header + Hero) --- */
+.cs-hero-zone {
+  background:
+    radial-gradient(ellipse at 85% 15%, rgba(52, 211, 153, 0.16) 0%, transparent 50%),
+    radial-gradient(ellipse at 10% 80%, rgba(16, 185, 129, 0.12) 0%, transparent 45%),
+    var(--green-900);
+  color: #FFFFFF;
+  padding-bottom: 4.5rem;
+  border-bottom-left-radius: 2.5rem;
+  border-bottom-right-radius: 2.5rem;
+}
+
+.cs-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid rgba(167, 243, 208, 0.12);
+}
+
+.cs-topbar-links {
+  display: none;
+  align-items: center;
+  gap: 2rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--green-200);
+}
+
+@media (min-width: 768px) {
+  .cs-topbar-links { display: flex; }
+}
+
+.cs-topbar-links a:hover { color: #FFFFFF; }
+
+.cs-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+/* --- Hero Content Grid --- */
+.cs-hero-grid {
+  display: grid;
+  gap: 3rem;
+  padding-top: 3rem;
+  align-items: center;
+}
+
+@media (min-width: 960px) {
+  .cs-hero-grid {
+    grid-template-columns: 1.05fr 1fr;
+    padding-top: 4rem;
+  }
+}
+
+.cs-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(52, 211, 153, 0.14);
+  border: 1px solid rgba(167, 243, 208, 0.28);
+  color: var(--green-200);
+  padding: 0.35rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+}
+
+.cs-hero-title {
+  font-size: 2.35rem;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .cs-hero-title { font-size: 3.15rem; }
+}
+
+.cs-hero-title .serif-em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--green-400);
+  font-size: 1.08em;
+}
+
+.cs-hero-desc {
+  font-size: 1.05rem;
+  color: #D1FAE5;
+  line-height: 1.65;
+  max-width: 34rem;
+  margin-bottom: 1.75rem;
+}
+
+.cs-hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.cs-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.825rem;
+  color: var(--green-200);
+}
+
+.cs-hero-tags span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* --- Interactive Tabbed Demo Panel (Right side of Hero) --- */
+.cs-demo-shell {
+  background: rgba(7, 29, 19, 0.75);
+  border: 1px solid rgba(167, 243, 208, 0.22);
+  border-radius: var(--r-2xl);
+  padding: 1rem;
+  box-shadow: var(--shadow-pop);
+}
+
+.cs-demo-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.35rem;
+  border-radius: var(--r-lg);
+  margin-bottom: 1rem;
+}
+
+.cs-demo-tab {
+  padding: 0.55rem 0.5rem;
+  border-radius: var(--r-md);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--green-200);
+  text-align: center;
+  transition: all 0.2s var(--ease);
+}
+
+.cs-demo-tab.active {
+  background: var(--green-400);
+  color: var(--green-950);
+  font-weight: 700;
+}
+
+.cs-demo-screen {
+  background: var(--bg-card);
+  color: var(--ink-1);
+  border-radius: var(--r-xl);
+  padding: 1.25rem;
+  min-height: 17.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.875rem;
+}
+
+.cs-demo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--r-md);
+  background: var(--bg-page);
+  border-left: 4px solid var(--green-600);
+}
+
+.cs-demo-row--exact {
+  background: var(--green-50);
+  border-left-color: var(--green-500);
+}
+
+.cs-demo-hour {
+  font-family: monospace;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--green-800);
+}
+
+/* --- Section Headings --- */
+.cs-section {
+  padding: 4.5rem 0;
+}
+
+.cs-section-head {
+  max-width: 40rem;
+  margin-bottom: 2.5rem;
+}
+
+.cs-section-head--center {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.cs-eyebrow {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--green-700);
+  margin-bottom: 0.5rem;
+}
+
+.cs-section-head h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--green-900);
+  line-height: 1.15;
+  margin-bottom: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .cs-section-head h2 { font-size: 2.5rem; }
+}
+
+.cs-section-head p {
+  font-size: 1rem;
+  color: var(--ink-3);
+}
+
+/* --- 6-Card Feature Grid (Icon-left clean layout) --- */
+.cs-feat-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .cs-feat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .cs-feat-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.cs-feat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-xl);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.cs-feat-card:hover {
+  border-color: var(--green-500);
+  transform: translateY(-2px);
+}
+
+.cs-feat-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--r-md);
+  background: var(--green-100);
+  color: var(--green-800);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cs-feat-card h3 {
+  font-size: 1.075rem;
+  font-weight: 700;
+  color: var(--green-900);
+}
+
+.cs-feat-card p {
+  font-size: 0.9rem;
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
+/* --- Community Split Band --- */
+.cs-comm-band {
+  background: var(--green-50);
+  border-top: 1px solid var(--border-card);
+  border-bottom: 1px solid var(--border-card);
+  padding: 4.5rem 0;
+}
+
+.cs-comm-grid {
+  display: grid;
+  gap: 2.5rem;
+  align-items: center;
+}
+
+@media (min-width: 900px) {
+  .cs-comm-grid { grid-template-columns: 1fr 1.05fr; }
+}
+
+.cs-privacy-cards {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .cs-privacy-cards { grid-template-columns: 1fr 1fr; }
+}
+
+.cs-priv-card {
+  background: var(--bg-card);
+  border-radius: var(--r-xl);
+  padding: 1.35rem;
+  border: 1.5px solid var(--border-card);
+}
+
+.cs-priv-card--shared {
+  border-color: var(--green-500);
+}
+
+.cs-priv-card h4 {
+  font-size: 0.925rem;
+  font-weight: 700;
+  margin-bottom: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.cs-priv-card ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--ink-2);
+}
+
+.cs-priv-card li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* --- Simple 2-Card Access Section --- */
+.cs-access-grid {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 54rem;
+  margin: 0 auto;
+}
+
+@media (min-width: 768px) {
+  .cs-access-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.cs-access-card {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.cs-access-card--highlight {
+  background: var(--green-900);
+  color: #FFFFFF;
+  border-color: var(--green-800);
+  box-shadow: var(--shadow-pop);
+}
+
+.cs-access-card--highlight p,
+.cs-access-card--highlight li {
+  color: #D1FAE5;
+}
+
+.cs-access-card h3 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+}
+
+/* --- Footer --- */
+.cs-footer {
+  background: var(--green-950);
+  color: var(--green-200);
+  padding: 2.25rem 0;
+  font-size: 0.875rem;
+}
+
+.cs-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}

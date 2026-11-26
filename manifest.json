@@ -1,0 +1,17 @@
+{
+  "name": "CoSesión · Agenda y Comunidad Clínica",
+  "short_name": "CoSesión",
+  "description": "Cohesión para tu equipo, orden en cada sesión. Horarios al minuto, CUD, obra social/particular y evoluciones compartidas.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0E2E20",
+  "theme_color": "#15803D",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
