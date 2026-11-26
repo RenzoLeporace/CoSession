@@ -9,6 +9,7 @@ Router.register('/agenda', () => AppAgenda.render());
 Router.register('/pacientes', () => renderPatients());
 Router.register('/paciente/:id', (parts, params) => renderPatientDetail(params.id));
 Router.register('/comunidad', () => renderCommunity());
+Router.register('/perfil', () => renderProfile());
 
 DB.initialize().then(() => {
   if (!DB.getUser() && DB.getLockedUser() && (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#')) {

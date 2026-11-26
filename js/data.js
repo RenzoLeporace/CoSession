@@ -39,7 +39,7 @@ function escapeHTML(value) {
 const DB = {
   _activeUserId: null,
   _encryptionKey: null,
-  _vault: { patients: [], sessions: [], appointments: [] },
+  _vault: { patients: [], sessions: [], appointments: [], profile: {} },
   _persisting: Promise.resolve(),
 
   _get(key) {
@@ -140,7 +140,8 @@ const DB = {
       const vault = {
         patients,
         sessions: legacySessions.filter(session => ownedPatientIds.has(session.patientId)),
-        appointments: legacyAppointments.filter(appointment => appointment.createdBy === user.id)
+        appointments: legacyAppointments.filter(appointment => appointment.createdBy === user.id),
+        profile: {}
       };
       this._set(`vault_${user.id}`, await this._encrypt(vault, credentials.key));
     }
@@ -191,7 +192,8 @@ const DB = {
 
   getUser() {
     if (!this._activeUserId || !this._encryptionKey) return null;
-    return (this._get('users') || []).find(user => user.id === this._activeUserId) || null;
+    const user = (this._get('users') || []).find(account => account.id === this._activeUserId);
+    return user ? { ...user, ...(this._vault.profile || {}) } : null;
   },
 
   async unlockUser(user, password) {
@@ -202,7 +204,8 @@ const DB = {
     const encryptedVault = this._get(`vault_${user.id}`);
     const vault = encryptedVault
       ? await this._decrypt(encryptedVault, credentials.key)
-      : { patients: [], sessions: [], appointments: [] };
+      : { patients: [], sessions: [], appointments: [], profile: {} };
+    if (!vault.profile) vault.profile = {};
     this._activeUserId = user.id;
     this._encryptionKey = credentials.key;
     this._vault = vault;
@@ -219,7 +222,7 @@ const DB = {
   async activateUser(user, key) {
     this._activeUserId = user.id;
     this._encryptionKey = key;
-    this._vault = { patients: [], sessions: [], appointments: [] };
+    this._vault = { patients: [], sessions: [], appointments: [], profile: {} };
     this._set('currentUser', user.id);
     await this._saveVault();
   },
@@ -228,7 +231,7 @@ const DB = {
   lock() {
     this._activeUserId = null;
     this._encryptionKey = null;
-    this._vault = { patients: [], sessions: [], appointments: [] };
+    this._vault = { patients: [], sessions: [], appointments: [], profile: {} };
   },
   async logout() {
     await this._persisting;
@@ -240,9 +243,42 @@ const DB = {
   saveUser(user) {
     const users = this.getUsers();
     const idx = users.findIndex(u => u.id === user.id || u.email === user.email);
-    if (idx >= 0) users[idx] = user;
-    else users.push(user);
+    const account = { ...user };
+    ['phone', 'institution', 'institutionRole', 'professionalRegistration'].forEach(field => delete account[field]);
+    if (idx >= 0) users[idx] = account;
+    else users.push(account);
     this._set('users', users);
+  },
+
+  async updateProfile(profile) {
+    const currentUser = this.getUser();
+    if (!currentUser) throw new Error('Iniciá sesión para editar tu perfil.');
+    const email = profile.email.trim().toLowerCase();
+    const users = this.getUsers();
+    if (users.some(user => user.id !== currentUser.id && user.email.toLowerCase() === email)) {
+      throw new Error('Ya existe una cuenta con ese correo.');
+    }
+
+    await this._updateVault(vault => {
+      vault.profile = {
+        phone: profile.phone.trim(),
+        institution: profile.institution.trim(),
+        institutionRole: profile.institutionRole.trim(),
+        professionalRegistration: profile.professionalRegistration.trim()
+      };
+      vault.patients.forEach(patient => {
+        if (patient.createdBy === currentUser.id) patient.createdByName = profile.name.trim();
+      });
+      vault.sessions.forEach(session => {
+        if (session.authorId === currentUser.id) {
+          session.authorName = `${profile.name.trim()} (${profile.profession.trim() || 'Profesional'})`;
+        }
+      });
+    });
+
+    const account = { ...currentUser, name: profile.name.trim(), email, profession: profile.profession.trim() };
+    ['phone', 'institution', 'institutionRole', 'professionalRegistration'].forEach(field => delete account[field]);
+    this.saveUser(account);
   },
 
   can(permission, user = this.getUser()) {

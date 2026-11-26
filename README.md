@@ -20,7 +20,7 @@ La aplicación está publicada en [GitHub Pages](https://renzoleporace.github.io
 ## Seguridad y alcance de la demo
 
 - Las contraseñas se derivan con PBKDF2-SHA-256 (310.000 iteraciones y sal aleatoria); nunca se guardan en texto plano.
-- Fichas, evoluciones y turnos se cifran con AES-GCM en el almacenamiento local y se desbloquean al ingresar la contraseña.
+- Fichas, evoluciones, turnos y datos profesionales privados del perfil (teléfono, institución, cargo y matrícula) se cifran con AES-GCM en el almacenamiento local y se desbloquean al ingresar la contraseña.
 - Esta versión usa `localStorage`: cuentas, aprobaciones y roles solo existen en el navegador actual. No hay sincronización entre dispositivos ni intercambio de fichas entre cuentas. Los permisos de interfaz no reemplazan controles de acceso en un servidor.
 - No usar con información clínica real ni como sistema de producción. Para colaboración real se necesita un backend con autenticación y autorización del lado del servidor, almacenamiento cifrado y gestión de claves.
 - Si el navegador contiene datos de una versión anterior, la app intenta cifrarlos durante la actualización con las contraseñas que estaban guardadas localmente. Si la migración no puede completarse, muestra un error y no carga esos datos.

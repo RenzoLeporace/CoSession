@@ -132,14 +132,14 @@ const Components = {
               <button class="app-install-btn" onclick="showInstallAppModal()" title="Instalar en celular">
                 ${Icons.smartphone} <span>App</span>
               </button>
-              <div class="app-user-chip" onclick="handleLogout()" title="Cerrar sesión">
+              <button class="app-user-chip" onclick="Router.navigate('/perfil')" aria-label="Abrir perfil de ${escapeHTML(user.name)}" title="Abrir mi perfil">
                 <div class="app-user-avatar">${getInitials(user.name)}</div>
                 <div class="app-user-meta">
-                  <span class="app-user-name">${user.name}</span>
+                  <span class="app-user-name">${escapeHTML(user.name)}</span>
                   <span class="app-user-role">${user.profession || 'Profesional'} · ${user.communityRole || 'Individual'}</span>
                 </div>
-                ${Icons.logout}
-              </div>
+                ${Icons.user}
+              </button>
             </div>
           </div>
         </header>
