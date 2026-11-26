@@ -3,10 +3,13 @@ function renderDashboard() {
   const user = DB.getUser();
   if (!user) { Router.navigate('/entrar'); return; }
 
-  const patients = DB.getPatients().filter(p => p.createdBy === user.id || p.communityCode === user.communityCode);
-  const myAppts = DB.getAppointments().filter(a => a.createdBy === user.id);
+  const canViewClinical = DB.can('view_clinical', user);
+  const canManagePatients = DB.can('manage_patients', user);
+  const canManageAgenda = DB.can('manage_agenda', user);
+  const patients = canViewClinical ? DB.getPatients() : [];
+  const myAppts = canManageAgenda ? DB.getAppointments() : [];
   const todayAppts = myAppts.filter(a => a.date === DateUtil.today());
-  const sessions = DB.getSessions();
+  const sessions = canViewClinical ? DB.getSessions() : [];
 
   const osCount = patients.filter(p => p.paymentType === 'obra_social').length;
   const partCount = patients.filter(p => p.paymentType === 'particular').length;
@@ -16,24 +19,26 @@ function renderDashboard() {
     <div class="app-page-header">
       <div>
         <h1>Hola, ${user.name.split(' ')[0]}</h1>
-        <p class="app-page-subtitle">${DateUtil.format(DateUtil.today())} · ${user.profession || 'Profesional'} · Comunidad ${user.communityCode || 'INTEGRARTE'}</p>
+        <p class="app-page-subtitle">${DateUtil.format(DateUtil.today())} · ${user.profession || 'Profesional'} · ${user.communityRole || 'Individual'}${user.communityStatus === 'approved' && DB.getCommunity() ? ' · ' + DB.getCommunity().name : ''}</p>
       </div>
       <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-        <button class="btn btn-outline btn-sm" onclick="showAddPatientModal()">${Icons.plus} Paciente</button>
-        <button class="btn btn-primary btn-sm" onclick="Router.navigate('/agenda')">${Icons.calendar} Agendar turno</button>
+        ${canManagePatients ? `<button class="btn btn-outline btn-sm" onclick="showAddPatientModal()">${Icons.plus} Paciente</button>` : ''}
+        ${canManageAgenda ? `<button class="btn btn-primary btn-sm" onclick="Router.navigate('/agenda')">${Icons.calendar} Agendar turno</button>` : ''}
       </div>
     </div>`;
 
   const statsHtml = `
     <div class="stats-grid">
-      ${Components.stat(Icons.users, patients.length, 'Pacientes en espacio', 'green')}
-      ${Components.stat(Icons.calendar, todayAppts.length, 'Tus turnos de hoy', 'dark')}
-      ${Components.stat(Icons.shield, `${osCount} O.S. · ${partCount} Part.`, 'Obra Social / Particular', 'blue')}
-      ${Components.stat(Icons.fileText, `${cudCount} con CUD · ${sessions.length} notas`, 'CUD y evoluciones', 'amber')}
+      ${canViewClinical ? Components.stat(Icons.users, patients.length, 'Pacientes en espacio', 'green') : ''}
+      ${canManageAgenda ? Components.stat(Icons.calendar, todayAppts.length, 'Tus turnos de hoy', 'dark') : ''}
+      ${canViewClinical ? Components.stat(Icons.shield, `${osCount} O.S. · ${partCount} Part.`, 'Obra Social / Particular', 'blue') : ''}
+      ${canViewClinical ? Components.stat(Icons.fileText, `${cudCount} con CUD · ${sessions.length} notas`, 'CUD y evoluciones', 'amber') : ''}
     </div>`;
 
   let todayHtml = '';
-  if (todayAppts.length > 0) {
+  if (!canManageAgenda) {
+    todayHtml = '';
+  } else if (todayAppts.length > 0) {
     const apptRows = todayAppts
       .sort((a, b) => a.time.localeCompare(b.time))
       .map(a => {
@@ -76,7 +81,7 @@ function renderDashboard() {
   }
 
   let recentHtml = '';
-  const recentPatients = patients.slice(-5).reverse();
+  const recentPatients = canViewClinical ? patients.slice(-5).reverse() : [];
   if (recentPatients.length > 0) {
     recentHtml = `
       <div class="section-card">

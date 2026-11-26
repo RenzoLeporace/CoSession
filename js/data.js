@@ -1,5 +1,47 @@
 /* ===== DATA LAYER (LocalStorage – CoSesión) ===== */
+const COMMUNITY_ROLES = {
+  Coordinador: {
+    manage_members: true,
+    manage_roles: true,
+    manage_patients: true,
+    view_clinical: true,
+    edit_clinical: true,
+    manage_agenda: true
+  },
+  Profesional: {
+    manage_patients: true,
+    view_clinical: true,
+    edit_clinical: true,
+    manage_agenda: true
+  },
+  Analista: {
+    view_clinical: true
+  },
+  Recepcionista: {
+    manage_agenda: true,
+    manage_patients: true
+  },
+  Observador: {
+    view_patients: true
+  }
+};
+
+function escapeHTML(value) {
+  return String(value || '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[character]));
+}
+
 const DB = {
+  _activeUserId: null,
+  _encryptionKey: null,
+  _vault: { patients: [], sessions: [], appointments: [] },
+  _persisting: Promise.resolve(),
+
   _get(key) {
     try { return JSON.parse(localStorage.getItem('cosesion_' + key)) || null; }
     catch { return null; }
@@ -8,60 +50,300 @@ const DB = {
     localStorage.setItem('cosesion_' + key, JSON.stringify(val));
   },
 
-  getUser() { return this._get('currentUser'); },
-  setUser(u) { this._set('currentUser', u); },
-  logout() { localStorage.removeItem('cosesion_currentUser'); },
+  _crypto() {
+    if (!window.crypto || !window.crypto.subtle) {
+      throw new Error('Este navegador no permite cifrado seguro. Abrí CoSesión desde HTTPS o localhost.');
+    }
+    return window.crypto.subtle;
+  },
+
+  _toBase64(bytes) {
+    const data = new Uint8Array(bytes);
+    let binary = '';
+    for (let offset = 0; offset < data.length; offset += 0x8000) {
+      binary += String.fromCharCode(...data.subarray(offset, offset + 0x8000));
+    }
+    return btoa(binary);
+  },
+
+  async _deriveKey(password, salt) {
+    const subtle = this._crypto();
+    const material = await subtle.importKey(
+      'raw',
+      new TextEncoder().encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
+    const bits = await subtle.deriveBits(
+      { name: 'PBKDF2', salt, iterations: 310000, hash: 'SHA-256' },
+      material,
+      512
+    );
+    const derivedBytes = new Uint8Array(bits);
+    return {
+      hash: this._toBase64(derivedBytes.slice(0, 32)),
+      key: await subtle.importKey('raw', derivedBytes.slice(32), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt'])
+    };
+  },
+
+  async _encrypt(value, key) {
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await this._crypto().encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      new TextEncoder().encode(JSON.stringify(value))
+    );
+    return { iv: this._toBase64(iv), data: this._toBase64(ciphertext) };
+  },
+
+  async _decrypt(encrypted, key) {
+    const decode = value => Uint8Array.from(atob(value), char => char.charCodeAt(0));
+    const plaintext = await this._crypto().decrypt(
+      { name: 'AES-GCM', iv: decode(encrypted.iv) },
+      key,
+      decode(encrypted.data)
+    );
+    return JSON.parse(new TextDecoder().decode(plaintext));
+  },
+
+  async initialize() {
+    const users = this._get('users') || [];
+    const hasLegacyData = ['patients', 'sessions', 'appointments']
+      .some(key => localStorage.getItem(`cosesion_${key}`));
+    const legacyUsers = users.filter(user => typeof user.password === 'string' && !user.passwordHash);
+
+    if (hasLegacyData && (legacyUsers.length !== users.length || !legacyUsers.length)) {
+      throw new Error('Hay datos clínicos antiguos que no se pueden migrar sin la contraseña original de cada cuenta.');
+    }
+
+    const userIds = new Set(users.map(user => user.id));
+    const legacyPatients = this._get('patients') || [];
+    const legacySessions = this._get('sessions') || [];
+    const legacyAppointments = this._get('appointments') || [];
+    const patientIds = new Set(legacyPatients.map(patient => patient.id));
+    if (legacyPatients.some(patient => !userIds.has(patient.createdBy)) ||
+        legacySessions.some(session => !patientIds.has(session.patientId)) ||
+        legacyAppointments.some(appointment => !userIds.has(appointment.createdBy))) {
+      throw new Error('Hay datos clínicos sin una cuenta propietaria identificable. No se modificaron para evitar perderlos.');
+    }
+
+    for (const user of legacyUsers) {
+      const salt = window.crypto.getRandomValues(new Uint8Array(16));
+      const credentials = await this._deriveKey(user.password, salt);
+      user.passwordHash = credentials.hash;
+      user.passwordSalt = this._toBase64(salt);
+      delete user.password;
+
+      const patients = legacyPatients.filter(patient => patient.createdBy === user.id);
+      const ownedPatientIds = new Set(patients.map(patient => patient.id));
+      const vault = {
+        patients,
+        sessions: legacySessions.filter(session => ownedPatientIds.has(session.patientId)),
+        appointments: legacyAppointments.filter(appointment => appointment.createdBy === user.id)
+      };
+      this._set(`vault_${user.id}`, await this._encrypt(vault, credentials.key));
+    }
+
+    if (legacyUsers.length) {
+      this._set('users', users);
+      ['patients', 'sessions', 'appointments'].forEach(key => localStorage.removeItem(`cosesion_${key}`));
+      const oldCurrentUser = this._get('currentUser');
+      if (oldCurrentUser && oldCurrentUser.id) this._set('currentUser', oldCurrentUser.id);
+    }
+
+    const legacyCommunity = this._get('community');
+    let communities = this._get('communities') || [];
+    if (!communities.length && (legacyCommunity || users.some(user => user.communityCode))) {
+      const code = (legacyCommunity && legacyCommunity.code) || users.find(user => user.communityCode)?.communityCode;
+      if (code) {
+        const members = users.filter(user => user.communityCode === code);
+        const community = {
+          id: (legacyCommunity && legacyCommunity.id) || this.id(),
+          code,
+          name: (legacyCommunity && legacyCommunity.name) || code,
+          createdBy: members[0] ? members[0].id : null,
+          members: members.map((user, index) => ({
+            userId: user.id,
+            role: index === 0 ? 'Coordinador' : 'Profesional',
+            status: 'approved',
+            joinedAt: new Date().toISOString()
+          })),
+          requests: []
+        };
+        communities = [community];
+        this._set('communities', communities);
+        members.forEach((user, index) => {
+          user.communityId = community.id;
+          user.communityRole = index === 0 ? 'Coordinador' : 'Profesional';
+          user.communityStatus = 'approved';
+        });
+        this._set('users', users);
+      }
+    }
+  },
+
+  getLockedUser() {
+    const selected = this._get('currentUser');
+    const id = typeof selected === 'string' ? selected : selected && selected.id;
+    return (this._get('users') || []).find(user => user.id === id) || null;
+  },
+
+  getUser() {
+    if (!this._activeUserId || !this._encryptionKey) return null;
+    return (this._get('users') || []).find(user => user.id === this._activeUserId) || null;
+  },
+
+  async unlockUser(user, password) {
+    const salt = Uint8Array.from(atob(user.passwordSalt), char => char.charCodeAt(0));
+    const credentials = await this._deriveKey(password, salt);
+    if (credentials.hash !== user.passwordHash) return false;
+
+    const encryptedVault = this._get(`vault_${user.id}`);
+    const vault = encryptedVault
+      ? await this._decrypt(encryptedVault, credentials.key)
+      : { patients: [], sessions: [], appointments: [] };
+    this._activeUserId = user.id;
+    this._encryptionKey = credentials.key;
+    this._vault = vault;
+    this._set('currentUser', user.id);
+    return true;
+  },
+
+  async createCredentials(password) {
+    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+    const credentials = await this._deriveKey(password, salt);
+    return { passwordSalt: this._toBase64(salt), passwordHash: credentials.hash, key: credentials.key };
+  },
+
+  async activateUser(user, key) {
+    this._activeUserId = user.id;
+    this._encryptionKey = key;
+    this._vault = { patients: [], sessions: [], appointments: [] };
+    this._set('currentUser', user.id);
+    await this._saveVault();
+  },
+
+  setUser(u) { this._activeUserId = u.id; },
+  lock() {
+    this._activeUserId = null;
+    this._encryptionKey = null;
+    this._vault = { patients: [], sessions: [], appointments: [] };
+  },
+  async logout() {
+    await this._persisting;
+    localStorage.removeItem('cosesion_currentUser');
+    this.lock();
+  },
 
   getUsers() { return this._get('users') || []; },
   saveUser(user) {
     const users = this.getUsers();
-    const idx = users.findIndex(u => u.email === user.email);
+    const idx = users.findIndex(u => u.id === user.id || u.email === user.email);
     if (idx >= 0) users[idx] = user;
     else users.push(user);
     this._set('users', users);
   },
 
-  getPatients() { return this._get('patients') || []; },
-  savePatient(p) {
-    const patients = this.getPatients();
-    const idx = patients.findIndex(x => x.id === p.id);
-    if (idx >= 0) patients[idx] = p;
-    else patients.push(p);
-    this._set('patients', patients);
-  },
-  deletePatient(id) {
-    this._set('patients', this.getPatients().filter(p => p.id !== id));
+  can(permission, user = this.getUser()) {
+    if (!user) return false;
+    if (user.communityStatus !== 'approved') {
+      return ['manage_patients', 'view_patients', 'view_clinical', 'edit_clinical', 'manage_agenda'].includes(permission);
+    }
+    return Boolean((COMMUNITY_ROLES[user.communityRole] || {})[permission]);
   },
 
-  getSessions() { return this._get('sessions') || []; },
-  saveSession(s) {
-    const sessions = this.getSessions();
-    const idx = sessions.findIndex(x => x.id === s.id);
-    if (idx >= 0) sessions[idx] = s;
-    else sessions.push(s);
-    this._set('sessions', sessions);
-  },
-  getSessionsByPatient(patientId) {
-    return this.getSessions().filter(s => s.patientId === patientId);
-  },
-
-  getAppointments() { return this._get('appointments') || []; },
-  saveAppointment(a) {
-    const appts = this.getAppointments();
-    const idx = appts.findIndex(x => x.id === a.id);
-    if (idx >= 0) appts[idx] = a;
-    else appts.push(a);
-    this._set('appointments', appts);
-  },
-  deleteAppointment(id) {
-    this._set('appointments', this.getAppointments().filter(a => a.id !== id));
-  },
-  getAppointmentsByDate(dateStr) {
-    return this.getAppointments().filter(a => a.date === dateStr);
+  requirePermission(permission) {
+    if (!this.getUser()) {
+      Router.navigate('/entrar');
+      return false;
+    }
+    if (!this.can(permission)) {
+      showToast('Tu rol no tiene permiso para esta acción', 'error');
+      Router.navigate('/app');
+      return false;
+    }
+    return true;
   },
 
-  getCommunity() { return this._get('community') || null; },
-  setCommunity(c) { this._set('community', c); },
+  getCommunities() { return this._get('communities') || []; },
+  getCommunity(code) {
+    const user = this.getUser();
+    const communities = this.getCommunities();
+    return code
+      ? communities.find(community => community.code.toUpperCase() === code.toUpperCase()) || null
+      : communities.find(community => community.id === (user && user.communityId)) || null;
+  },
+  saveCommunity(community) {
+    const communities = this.getCommunities();
+    const index = communities.findIndex(item => item.id === community.id);
+    if (index >= 0) communities[index] = community;
+    else communities.push(community);
+    this._set('communities', communities);
+  },
+
+  async _saveVault() {
+    if (!this._encryptionKey || !this._activeUserId) throw new Error('Iniciá sesión para guardar datos cifrados.');
+    this._set(`vault_${this._activeUserId}`, await this._encrypt(this._vault, this._encryptionKey));
+  },
+
+  async _updateVault(update) {
+    const previous = this._persisting;
+    let release;
+    this._persisting = new Promise(resolve => { release = resolve; });
+    await previous;
+    try {
+      if (!this._encryptionKey || !this._activeUserId) throw new Error('Iniciá sesión para guardar datos cifrados.');
+      const next = JSON.parse(JSON.stringify(this._vault));
+      update(next);
+      const encrypted = await this._encrypt(next, this._encryptionKey);
+      this._set(`vault_${this._activeUserId}`, encrypted);
+      this._vault = next;
+    } finally {
+      release();
+    }
+  },
+
+  getPatients() { return this._vault.patients; },
+  async savePatient(patient) {
+    await this._updateVault(vault => {
+      const index = vault.patients.findIndex(item => item.id === patient.id);
+      if (index >= 0) vault.patients[index] = patient;
+      else vault.patients.push(patient);
+    });
+  },
+  async deletePatient(id) {
+    await this._updateVault(vault => {
+      vault.patients = vault.patients.filter(patient => patient.id !== id);
+      vault.sessions = vault.sessions.filter(session => session.patientId !== id);
+      vault.appointments = vault.appointments.filter(appointment => appointment.patientId !== id);
+    });
+  },
+
+  getSessions() { return this._vault.sessions; },
+  async saveSession(session) {
+    await this._updateVault(vault => {
+      const index = vault.sessions.findIndex(item => item.id === session.id);
+      if (index >= 0) vault.sessions[index] = session;
+      else vault.sessions.push(session);
+    });
+  },
+  getSessionsByPatient(patientId) { return this._vault.sessions.filter(session => session.patientId === patientId); },
+
+  getAppointments() { return this._vault.appointments; },
+  async saveAppointment(appointment) {
+    await this._updateVault(vault => {
+      const index = vault.appointments.findIndex(item => item.id === appointment.id);
+      if (index >= 0) vault.appointments[index] = appointment;
+      else vault.appointments.push(appointment);
+    });
+  },
+  async deleteAppointment(id) {
+    await this._updateVault(vault => {
+      vault.appointments = vault.appointments.filter(appointment => appointment.id !== id);
+    });
+  },
+  getAppointmentsByDate(dateStr) { return this._vault.appointments.filter(appointment => appointment.date === dateStr); },
 
   id() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 };

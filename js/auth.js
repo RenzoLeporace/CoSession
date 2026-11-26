@@ -2,6 +2,7 @@
 
 function renderLogin() {
   const app = document.getElementById('app');
+  const lockedUser = DB.getLockedUser();
   app.innerHTML = `
     <div class="auth-page">
       <div class="auth-top-bar">
@@ -12,13 +13,13 @@ function renderLogin() {
       <div class="auth-card">
         <div class="auth-card-head">
           <h1>Ingresá a tu consultorio</h1>
-          <p>Accedé a tu agenda flexible, fichas con CUD y evoluciones de tu comunidad.</p>
+          <p>Accedé a tu agenda y a tus fichas cifradas en este dispositivo.</p>
         </div>
 
         <form class="auth-form" id="loginForm" onsubmit="handleLogin(event)">
           <div class="form-group">
             <label class="form-label" for="loginEmail">Correo electrónico</label>
-            <input type="email" id="loginEmail" class="form-input" placeholder="tu@email.com" required autocomplete="email">
+            <input type="email" id="loginEmail" class="form-input" placeholder="tu@email.com" required autocomplete="email" value="${lockedUser ? escapeHTML(lockedUser.email) : ''}">
           </div>
           <div class="form-group">
             <label class="form-label" for="loginPassword">Contraseña</label>
@@ -50,7 +51,7 @@ function renderSignup() {
       <div class="auth-card">
         <div class="auth-card-head">
           <h1>Creá tu cuenta en CoSesión</h1>
-          <p>Elegí tu especialidad y, si trabajás en un centro, sumate con su código.</p>
+          <p>Elegí tu especialidad. Podés crear una cuenta individual y unirte a una comunidad más adelante.</p>
         </div>
 
         <form class="auth-form" id="signupForm" onsubmit="handleSignup(event)">
@@ -89,7 +90,7 @@ function renderSignup() {
           <div class="form-group">
             <label class="form-label" for="signupCommunityCode">Código de comunidad / centro (opcional)</label>
             <input type="text" id="signupCommunityCode" class="form-input" placeholder="Ej: INTEGRARTE" autocomplete="off">
-            <span class="form-hint">Los colegas con el mismo código comparten fichas, CUD y evoluciones (sin ver cobros).</span>
+            <span class="form-hint">Si lo ingresás, tu solicitud deberá ser aceptada por el coordinador. También podés unirte después desde la app.</span>
           </div>
 
           <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.25rem">Crear mi cuenta</button>
@@ -123,35 +124,39 @@ function togglePassword(inputId, btn) {
   }
 }
 
-function handleLogin(e) {
+async function handleLogin(e) {
   e.preventDefault();
-  const email = document.getElementById('loginEmail').value.trim();
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
   const password = document.getElementById('loginPassword').value;
 
-  const users = DB.getUsers();
-  const user = users.find(u => u.email === email);
-
-  if (!user) {
-    showToast('No encontramos una cuenta con ese correo', 'error');
-    return;
+  try {
+    const user = DB.getUsers().find(account => account.email.toLowerCase() === email);
+    if (!user) {
+      showToast('No encontramos una cuenta con ese correo', 'error');
+      return;
+    }
+    if (!user.passwordHash || !user.passwordSalt) {
+      showToast('Esta cuenta requiere una actualización segura. Contactá al administrador.', 'error');
+      return;
+    }
+    if (!await DB.unlockUser(user, password)) {
+      showToast('Contraseña incorrecta', 'error');
+      return;
+    }
+    showToast(`¡Bienvenido/a, ${user.name}!`, 'success');
+    Router.navigate('/app');
+  } catch (error) {
+    showToast(error.message || 'No se pudo descifrar tu información local', 'error');
   }
-  if (user.password !== password) {
-    showToast('Contraseña incorrecta', 'error');
-    return;
-  }
-
-  DB.setUser(user);
-  showToast(`¡Bienvenido/a, ${user.name}!`, 'success');
-  Router.navigate('/app');
 }
 
-function handleSignup(e) {
+async function handleSignup(e) {
   e.preventDefault();
   const name = document.getElementById('signupName').value.trim();
-  const email = document.getElementById('signupEmail').value.trim();
+  const email = document.getElementById('signupEmail').value.trim().toLowerCase();
   const password = document.getElementById('signupPassword').value;
   const profession = document.getElementById('signupProfession').value || 'Psicopedagogo/a';
-  const communityCode = document.getElementById('signupCommunityCode').value.trim().toUpperCase() || 'INTEGRARTE';
+  const communityCode = document.getElementById('signupCommunityCode').value.trim().toUpperCase();
 
   if (password.length < 8) {
     showToast('La contraseña debe tener al menos 8 caracteres', 'error');
@@ -159,36 +164,39 @@ function handleSignup(e) {
   }
 
   const users = DB.getUsers();
-  if (users.find(u => u.email === email)) {
+  if (users.find(u => u.email.toLowerCase() === email)) {
     showToast('Ya existe una cuenta con ese correo', 'error');
     return;
   }
-
-  const user = {
-    id: DB.id(),
-    name,
-    email,
-    password,
-    profession,
-    communityCode,
-    createdAt: new Date().toISOString()
-  };
-
-  DB.saveUser(user);
-  DB.setUser(user);
-
-  const existing = DB.getCommunity();
-  if (!existing || existing.code !== communityCode) {
-    DB.setCommunity({
-      code: communityCode,
-      name: communityCode,
-      members: [user.id]
-    });
-  } else if (!existing.members.includes(user.id)) {
-    existing.members.push(user.id);
-    DB.setCommunity(existing);
+  if (communityCode && !DB.getCommunity(communityCode)) {
+    showToast('No encontramos una comunidad con ese código. Podés crear tu cuenta individual y unirte más adelante.', 'error');
+    return;
   }
 
-  showToast(`¡Cuenta creada! Bienvenido/a, ${name}`, 'success');
-  Router.navigate('/app');
+  try {
+    const credentials = await DB.createCredentials(password);
+    const user = {
+      id: DB.id(),
+      name,
+      email,
+      profession,
+      ...credentials,
+      communityRole: 'Individual',
+      communityStatus: null,
+      createdAt: new Date().toISOString()
+    };
+    delete user.key;
+
+    DB.saveUser(user);
+    await DB.activateUser(user, credentials.key);
+    if (communityCode) {
+      requestCommunityMembership(user, communityCode);
+      showToast(`Cuenta creada. Tu solicitud para "${communityCode}" quedó pendiente de aprobación.`, 'info');
+    } else {
+      showToast(`¡Cuenta individual creada! Bienvenido/a, ${name}`, 'success');
+    }
+    Router.navigate(communityCode ? '/comunidad' : '/app');
+  } catch (error) {
+    showToast(error.message || 'No se pudo crear tu cuenta cifrada', 'error');
+  }
 }

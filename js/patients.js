@@ -4,16 +4,24 @@ let currentPatientFilter = 'all';
 function renderPatients() {
   const user = DB.getUser();
   if (!user) { Router.navigate('/entrar'); return; }
+  if (!DB.can('view_clinical', user) && !DB.can('view_patients', user) && !DB.can('manage_patients', user)) {
+    showToast('Tu rol no tiene acceso a pacientes', 'error');
+    Router.navigate('/app');
+    return;
+  }
 
-  const patients = DB.getPatients().filter(p => p.createdBy === user.id || p.communityCode === user.communityCode);
+  const patients = DB.getPatients();
+  const canManagePatients = DB.can('manage_patients', user);
+  const canViewClinical = DB.can('view_clinical', user);
+  if (!canViewClinical) currentPatientFilter = 'all';
 
   const headerHtml = `
     <div class="app-page-header">
       <div>
         <h1>Pacientes</h1>
-        <p class="app-page-subtitle">Fichas clínicas, cobertura (Obra Social / Particular), CUD y notas de sesión.</p>
+        <p class="app-page-subtitle">${canViewClinical ? 'Fichas clínicas, cobertura (Obra Social / Particular), CUD y notas de sesión.' : 'Directorio básico de pacientes.'}</p>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="showAddPatientModal()">${Icons.plus} Nuevo paciente</button>
+      ${canManagePatients ? `<button class="btn btn-primary btn-sm" onclick="showAddPatientModal()">${Icons.plus} Nuevo paciente</button>` : ''}
     </div>`;
 
   let listHtml;
@@ -21,7 +29,7 @@ function renderPatients() {
     listHtml = `
       <div class="section-card">
         <div class="section-card-body">
-          ${Components.emptyState(Icons.users, 'Todavía no hay pacientes', 'Cargá tu primer paciente con su DNI, cobertura y estado del CUD.', 'Agregar paciente', 'showAddPatientModal()')}
+          ${Components.emptyState(Icons.users, 'Todavía no hay pacientes', canManagePatients ? 'Cargá tu primer paciente con su DNI, cobertura y estado del CUD.' : 'Todavía no hay pacientes en tu espacio cifrado.', canManagePatients ? 'Agregar paciente' : '', canManagePatients ? 'showAddPatientModal()' : '')}
         </div>
       </div>`;
   } else {
@@ -29,21 +37,21 @@ function renderPatients() {
       <div class="search-bar-row">
         <div class="search-wrapper">
           ${Icons.search}
-          <input type="text" class="form-input" placeholder="Buscar por nombre o DNI..." id="patientSearch" oninput="filterPatients()">
+          <input type="text" class="form-input" placeholder="${canViewClinical ? 'Buscar por nombre o DNI...' : 'Buscar por nombre...'}" id="patientSearch" oninput="filterPatients()">
         </div>
-        <div class="filter-pills">
+        ${canViewClinical ? `<div class="filter-pills">
           <button class="filter-pill ${currentPatientFilter === 'all' ? 'active' : ''}" onclick="setPatientFilter('all')">Todos</button>
           <button class="filter-pill ${currentPatientFilter === 'obra_social' ? 'active' : ''}" onclick="setPatientFilter('obra_social')">Obra Social</button>
           <button class="filter-pill ${currentPatientFilter === 'particular' ? 'active' : ''}" onclick="setPatientFilter('particular')">Particular</button>
           <button class="filter-pill ${currentPatientFilter === 'cud' ? 'active' : ''}" onclick="setPatientFilter('cud')">Con CUD</button>
-        </div>
+        </div>` : ''}
       </div>`;
 
     listHtml = `
       ${controlsHtml}
       <div class="section-card">
         <div class="patient-list" id="patientList">
-          ${getFilteredPatientsHtml(patients, '')}
+          ${getFilteredPatientsHtml(patients, '', canViewClinical)}
         </div>
       </div>`;
   }
@@ -57,29 +65,31 @@ function setPatientFilter(filter) {
   renderPatients();
 }
 
-function getFilteredPatientsHtml(allPatients, query) {
+function getFilteredPatientsHtml(allPatients, query, showClinicalDetails = true) {
   const filtered = allPatients.filter(p => {
-    const matchesText = !query || p.name.toLowerCase().includes(query) || (p.dni && p.dni.includes(query));
+    const matchesText = !query || p.name.toLowerCase().includes(query) || (showClinicalDetails && p.dni && p.dni.includes(query));
     if (!matchesText) return false;
     if (currentPatientFilter === 'obra_social') return p.paymentType === 'obra_social';
     if (currentPatientFilter === 'particular') return p.paymentType === 'particular';
-    if (currentPatientFilter === 'cud') return Boolean(p.cud);
+    if (currentPatientFilter === 'cud' && showClinicalDetails) return Boolean(p.cud);
     return true;
   });
 
-  return filtered.map(p => Components.patientRow(p)).join('') ||
+  return filtered.map(p => Components.patientRow(p, showClinicalDetails)).join('') ||
     '<div style="padding:2rem;text-align:center;color:var(--ink-3)">No hay pacientes que coincidan con la búsqueda.</div>';
 }
 
 function filterPatients() {
   const user = DB.getUser();
   const query = document.getElementById('patientSearch').value.toLowerCase();
-  const allPatients = DB.getPatients().filter(p => p.createdBy === user.id || p.communityCode === user.communityCode);
+  const allPatients = DB.getPatients();
   const list = document.getElementById('patientList');
-  if (list) list.innerHTML = getFilteredPatientsHtml(allPatients, query);
+  if (list) list.innerHTML = getFilteredPatientsHtml(allPatients, query, DB.can('view_clinical', user));
 }
 
 function showAddPatientModal() {
+  if (!DB.requirePermission('manage_patients')) return;
+  const canEditClinical = DB.can('edit_clinical');
   const modalHtml = Components.modal(
     'Nuevo paciente',
     `
@@ -87,7 +97,7 @@ function showAddPatientModal() {
       <label class="form-label">Nombre y apellido</label>
       <input type="text" id="patientName" class="form-input" placeholder="Ej: Lucas Fernández" required>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+    ${canEditClinical ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
       <div class="form-group">
         <label class="form-label">DNI</label>
         <input type="text" id="patientDni" class="form-input" placeholder="Ej: 42123456">
@@ -96,12 +106,15 @@ function showAddPatientModal() {
         <label class="form-label">Teléfono (WhatsApp)</label>
         <input type="tel" id="patientPhone" class="form-input" placeholder="Ej: 5491122334455">
       </div>
-    </div>
+    </div>` : `<div class="form-group">
+      <label class="form-label">Teléfono</label>
+      <input type="tel" id="patientPhone" class="form-input" placeholder="Ej: 5491122334455">
+    </div>`}
     <div class="form-group">
       <label class="form-label">Correo electrónico</label>
       <input type="email" id="patientEmail" class="form-input" placeholder="paciente@email.com">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+    <div style="display:grid;grid-template-columns:${canEditClinical ? '1fr 1fr' : '1fr'};gap:0.75rem">
       <div class="form-group">
         <label class="form-label">Tipo de atención</label>
         <select id="patientPaymentType" class="form-select">
@@ -109,7 +122,7 @@ function showAddPatientModal() {
           <option value="obra_social">Obra Social</option>
         </select>
       </div>
-      <div class="form-group">
+      ${canEditClinical ? `<div class="form-group">
         <label class="form-label">Condición frente al CUD</label>
         <select id="patientCud" class="form-select">
           <option value="">Sin CUD</option>
@@ -117,16 +130,16 @@ function showAddPatientModal() {
           <option value="en_tramite">CUD en trámite</option>
           <option value="vencido">CUD Vencido</option>
         </select>
-      </div>
+      </div>` : ''}
     </div>
     <div class="form-group" id="obraSocialGroup" style="display:none">
       <label class="form-label">Nombre de la Obra Social / Prepaga</label>
       <input type="text" id="patientObraSocial" class="form-input" placeholder="Ej: OSDE, IOMA, Swiss Medical...">
     </div>
-    <div class="form-group">
+    ${canEditClinical ? `<div class="form-group">
       <label class="form-label">Observaciones iniciales</label>
       <textarea id="patientNotes" class="form-input" placeholder="Motivo de consulta, escuela, derivación..."></textarea>
-    </div>
+    </div>` : ''}
     `,
     `
     <button class="btn btn-ghost" onclick="document.querySelector('.modal-overlay').remove()">Cancelar</button>
@@ -135,33 +148,42 @@ function showAddPatientModal() {
   );
 
   document.body.insertAdjacentHTML('beforeend', modalHtml);
-  document.getElementById('patientPaymentType').addEventListener('change', function() {
-    document.getElementById('obraSocialGroup').style.display = this.value === 'obra_social' ? '' : 'none';
+  const paymentType = document.getElementById('patientPaymentType');
+  if (paymentType) paymentType.addEventListener('change', function() {
+    const group = document.getElementById('obraSocialGroup');
+    if (group) group.style.display = this.value === 'obra_social' ? '' : 'none';
   });
 }
 
-function saveNewPatient() {
+async function saveNewPatient() {
+  if (!DB.requirePermission('manage_patients')) return;
   const name = document.getElementById('patientName').value.trim();
   if (!name) { showToast('Ingresá el nombre del paciente', 'error'); return; }
 
   const user = DB.getUser();
+  const canEditClinical = DB.can('edit_clinical', user);
   const patient = {
     id: DB.id(),
     name,
-    dni: document.getElementById('patientDni').value.trim(),
+    dni: canEditClinical ? document.getElementById('patientDni').value.trim() : '',
     phone: document.getElementById('patientPhone').value.trim(),
     email: document.getElementById('patientEmail').value.trim(),
     paymentType: document.getElementById('patientPaymentType').value,
-    obraSocial: document.getElementById('patientObraSocial').value.trim(),
-    cud: document.getElementById('patientCud').value,
-    notes: document.getElementById('patientNotes').value.trim(),
+    obraSocial: canEditClinical ? document.getElementById('patientObraSocial').value.trim() : '',
+    cud: canEditClinical ? document.getElementById('patientCud').value : '',
+    notes: canEditClinical ? document.getElementById('patientNotes').value.trim() : '',
     createdBy: user.id,
     createdByName: user.name,
-    communityCode: user.communityCode,
+    communityCode: user.communityStatus === 'approved' ? (DB.getCommunity() || {}).code : '',
     createdAt: new Date().toISOString()
   };
 
-  DB.savePatient(patient);
+  try {
+    await DB.savePatient(patient);
+  } catch (error) {
+    showToast(error.message || 'No se pudo guardar la ficha cifrada', 'error');
+    return;
+  }
   document.querySelector('.modal-overlay').remove();
   showToast(`Paciente "${name}" guardado`, 'success');
   if (Router.currentRoute === '/app') renderDashboard();
@@ -171,6 +193,7 @@ function saveNewPatient() {
 function renderPatientDetail(id) {
   const user = DB.getUser();
   if (!user) { Router.navigate('/entrar'); return; }
+  if (!DB.requirePermission('view_clinical')) return;
 
   const patient = DB.getPatients().find(p => p.id === id);
   if (!patient) {
@@ -179,8 +202,9 @@ function renderPatientDetail(id) {
     return;
   }
 
-  const isCommunity = patient.communityCode === user.communityCode;
+  const isCommunity = user.communityStatus === 'approved' && patient.communityCode === (DB.getCommunity() || {}).code;
   const isOwner = patient.createdBy === user.id;
+  const canEditClinical = DB.can('edit_clinical', user);
 
   const allSessions = DB.getSessionsByPatient(id).sort((a, b) => b.date.localeCompare(a.date));
   const myAppointments = DB.getAppointments().filter(a => a.patientId === id && a.createdBy === user.id).sort((a, b) => b.date.localeCompare(a.date));
@@ -211,8 +235,8 @@ function renderPatientDetail(id) {
         <button class="btn btn-ghost btn-sm" onclick="Router.navigate('/pacientes')">${Icons.arrowLeft} Volver</button>
       </div>
       <div style="display:flex;gap:0.5rem">
-        <button class="btn btn-outline btn-sm" onclick="showEditPatientModal('${id}')">${Icons.edit} Editar ficha</button>
-        ${isOwner ? `<button class="btn btn-danger btn-sm" onclick="confirmDeletePatient('${id}')">${Icons.trash}</button>` : ''}
+        ${canEditClinical ? `<button class="btn btn-outline btn-sm" onclick="showEditPatientModal('${id}')">${Icons.edit} Editar ficha</button>` : ''}
+        ${isOwner && DB.can('manage_patients', user) ? `<button class="btn btn-danger btn-sm" onclick="confirmDeletePatient('${id}')">${Icons.trash}</button>` : ''}
       </div>
     </div>
 
@@ -223,7 +247,7 @@ function renderPatientDetail(id) {
         <div class="patient-detail-meta">
           <span class="badge ${typeBadge}">${typeLabel}</span>
           ${patient.cud ? `<span class="badge ${cudBadgeClass}">${cudText}</span>` : ''}
-          ${isCommunity ? `<span class="badge badge-dark">Comunidad ${patient.communityCode}</span>` : ''}
+          ${isCommunity ? `<span class="badge badge-dark">Espacio local · comunidad ${patient.communityCode}</span>` : ''}
         </div>
       </div>
     </div>`;
@@ -271,7 +295,7 @@ function renderPatientDetail(id) {
     <div class="section-card">
       <div class="section-card-header">
         <h2>${Icons.fileText} Evoluciones / Qué se hizo en sesión (${allSessions.length})</h2>
-        <button class="btn btn-primary btn-sm" onclick="showAddSessionModal('${id}')">${Icons.plus} Nueva evolución</button>
+        ${canEditClinical ? `<button class="btn btn-primary btn-sm" onclick="showAddSessionModal('${id}')">${Icons.plus} Nueva evolución</button>` : ''}
       </div>
       <div class="section-card-body">
         ${allSessions.length > 0
@@ -282,7 +306,7 @@ function renderPatientDetail(id) {
 
   // Private appointments & payments ONLY visible to owner
   let privateApptsHtml = '';
-  if (myAppointments.length > 0) {
+  if (DB.can('manage_agenda', user) && myAppointments.length > 0) {
     const apptRows = myAppointments.slice(0, 6).map(a => `
       <div class="patient-row" onclick="AppAgenda.viewAppointment('${a.id}')">
         <div style="font-family:monospace;font-weight:700;color:var(--green-800);min-width:5.5rem">${DateUtil.formatShort(a.date)}</div>
@@ -308,6 +332,7 @@ function renderPatientDetail(id) {
 }
 
 function showAddSessionModal(patientId) {
+  if (!DB.requirePermission('edit_clinical')) return;
   const modalHtml = Components.modal(
     'Registrar evolución de sesión',
     `
@@ -324,7 +349,7 @@ function showAddSessionModal(patientId) {
     <div class="form-group">
       <label class="form-label">¿Qué se hizo en esta sesión?</label>
       <textarea id="sessionNotes" class="form-input" rows="5" placeholder="Actividades trabajadas, respuesta del paciente, indicaciones para la próxima..."></textarea>
-      <span class="form-hint">Esta evolución será visible para los colegas de tu comunidad (sin mostrar cobros).</span>
+      <span class="form-hint">Esta evolución se cifra y queda en tu espacio local; no se sincroniza con otras cuentas en esta demo.</span>
     </div>
     `,
     `
@@ -335,8 +360,13 @@ function showAddSessionModal(patientId) {
   document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function saveSession(patientId) {
+async function saveSession(patientId) {
+  if (!DB.requirePermission('edit_clinical')) return;
   const user = DB.getUser();
+  if (!DB.getPatients().some(patient => patient.id === patientId)) {
+    showToast('Paciente no disponible en tu espacio', 'error');
+    return;
+  }
   const notes = document.getElementById('sessionNotes').value.trim();
   if (!notes) { showToast('Escribí la evolución de la sesión', 'error'); return; }
 
@@ -348,17 +378,23 @@ function saveSession(patientId) {
     notes,
     authorId: user.id,
     authorName: `${user.name} (${user.profession || 'Profesional'})`,
-    communityCode: user.communityCode,
+    communityCode: user.communityStatus === 'approved' ? (DB.getCommunity() || {}).code : '',
     createdAt: new Date().toISOString()
   };
 
-  DB.saveSession(session);
+  try {
+    await DB.saveSession(session);
+  } catch (error) {
+    showToast(error.message || 'No se pudo guardar la evolución cifrada', 'error');
+    return;
+  }
   document.querySelector('.modal-overlay').remove();
   showToast('Evolución guardada', 'success');
   renderPatientDetail(patientId);
 }
 
 function showEditPatientModal(id) {
+  if (!DB.requirePermission('edit_clinical')) return;
   const patient = DB.getPatients().find(p => p.id === id);
   if (!patient) return;
 
@@ -422,7 +458,8 @@ function showEditPatientModal(id) {
   });
 }
 
-function updatePatient(id) {
+async function updatePatient(id) {
+  if (!DB.requirePermission('edit_clinical')) return;
   const patient = DB.getPatients().find(p => p.id === id);
   if (!patient) return;
 
@@ -435,15 +472,26 @@ function updatePatient(id) {
   patient.cud = document.getElementById('editPatientCud').value;
   patient.notes = document.getElementById('editPatientNotes').value.trim();
 
-  DB.savePatient(patient);
+  try {
+    await DB.savePatient(patient);
+  } catch (error) {
+    showToast(error.message || 'No se pudo guardar la ficha cifrada', 'error');
+    return;
+  }
   document.querySelector('.modal-overlay').remove();
   showToast('Ficha actualizada', 'success');
   renderPatientDetail(id);
 }
 
-function confirmDeletePatient(id) {
+async function confirmDeletePatient(id) {
+  if (!DB.requirePermission('manage_patients')) return;
   if (confirm('¿Eliminás este paciente? Esta acción no se puede deshacer.')) {
-    DB.deletePatient(id);
+    try {
+      await DB.deletePatient(id);
+    } catch (error) {
+      showToast(error.message || 'No se pudo eliminar la ficha cifrada', 'error');
+      return;
+    }
     showToast('Paciente eliminado', 'success');
     Router.navigate('/pacientes');
   }

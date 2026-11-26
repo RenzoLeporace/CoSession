@@ -10,15 +10,12 @@ Router.register('/pacientes', () => renderPatients());
 Router.register('/paciente/:id', (parts, params) => renderPatientDetail(params.id));
 Router.register('/comunidad', () => renderCommunity());
 
-// Auto-redirect if logged in
-const initialUser = DB.getUser();
-if (initialUser && (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#')) {
-  window.location.hash = '#/app';
-}
-
-// Initialize router
-Router.init();
-
-if (!localStorage.getItem('cosesion_initialized')) {
-  localStorage.setItem('cosesion_initialized', 'true');
-}
+DB.initialize().then(() => {
+  if (!DB.getUser() && DB.getLockedUser() && (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#')) {
+    window.location.hash = '#/entrar';
+  }
+  Router.init();
+}).catch(error => {
+  const app = document.getElementById('app');
+  app.textContent = `No se pudo preparar el almacenamiento seguro: ${error.message}`;
+});

@@ -5,9 +5,10 @@ const AppAgenda = {
   render() {
     const user = DB.getUser();
     if (!user) { Router.navigate('/entrar'); return; }
+    if (!DB.requirePermission('manage_agenda')) return;
 
     this.currentDate = this.currentDate || DateUtil.today();
-    const appointments = DB.getAppointmentsByDate(this.currentDate).filter(a => a.createdBy === user.id);
+    const appointments = DB.getAppointmentsByDate(this.currentDate);
 
     const headerHtml = `
       <div class="app-page-header">
@@ -73,8 +74,9 @@ const AppAgenda = {
   goToday() { this.currentDate = DateUtil.today(); this.render(); },
 
   showAddAppointment(defaultTime = '') {
+    if (!DB.requirePermission('manage_agenda')) return;
     const user = DB.getUser();
-    const patients = DB.getPatients().filter(p => p.createdBy === user.id || p.communityCode === user.communityCode);
+    const patients = DB.getPatients();
 
     if (patients.length === 0) {
       showToast('Primero cargá al menos un paciente', 'info');
@@ -146,9 +148,14 @@ const AppAgenda = {
     }
   },
 
-  saveAppointment() {
+  async saveAppointment() {
+    if (!DB.requirePermission('manage_agenda')) return;
     const patientId = document.getElementById('apptPatient').value;
     if (!patientId) { showToast('Seleccioná un paciente', 'error'); return; }
+    if (!DB.getPatients().some(patient => patient.id === patientId)) {
+      showToast('Paciente no disponible en tu espacio', 'error');
+      return;
+    }
 
     const user = DB.getUser();
     const appointment = {
@@ -164,13 +171,19 @@ const AppAgenda = {
       createdAt: new Date().toISOString()
     };
 
-    DB.saveAppointment(appointment);
+    try {
+      await DB.saveAppointment(appointment);
+    } catch (error) {
+      showToast(error.message || 'No se pudo guardar el turno cifrado', 'error');
+      return;
+    }
     document.querySelector('.modal-overlay').remove();
     showToast(`Turno agendado a las ${appointment.time}`, 'success');
     this.render();
   },
 
   viewAppointment(id) {
+    if (!DB.requirePermission('manage_agenda')) return;
     const appt = DB.getAppointments().find(a => a.id === id);
     if (!appt) return;
 
@@ -216,19 +229,31 @@ const AppAgenda = {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
   },
 
-  togglePaid(id) {
+  async togglePaid(id) {
+    if (!DB.requirePermission('manage_agenda')) return;
     const appt = DB.getAppointments().find(a => a.id === id);
     if (!appt) return;
     appt.paid = !appt.paid;
-    DB.saveAppointment(appt);
+    try {
+      await DB.saveAppointment(appt);
+    } catch (error) {
+      showToast(error.message || 'No se pudo actualizar el turno cifrado', 'error');
+      return;
+    }
     document.querySelector('.modal-overlay').remove();
     showToast(appt.paid ? 'Cobro registrado (privado)' : 'Marcado como pendiente', 'success');
     if (Router.currentRoute === '/agenda') this.render();
     else if (Router.currentRoute.startsWith('/paciente/')) renderPatientDetail(appt.patientId);
   },
 
-  deleteAppointment(id) {
-    DB.deleteAppointment(id);
+  async deleteAppointment(id) {
+    if (!DB.requirePermission('manage_agenda')) return;
+    try {
+      await DB.deleteAppointment(id);
+    } catch (error) {
+      showToast(error.message || 'No se pudo eliminar el turno cifrado', 'error');
+      return;
+    }
     document.querySelector('.modal-overlay').remove();
     showToast('Turno eliminado', 'success');
     this.render();

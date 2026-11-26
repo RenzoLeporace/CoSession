@@ -31,7 +31,7 @@ function renderLanding() {
                 Cohesión para tu equipo, <span class="serif-em">claridad</span> en cada sesión.
               </h1>
               <p class="cs-hero-desc">
-                Agendá en el horario exacto que atendés (como 16:20), distinguí pacientes de Obra Social o Particular, registrá su CUD y compartí evoluciones clínicas con tu centro manteniendo tus cobros 100% privados.
+                Agendá al minuto, organizá pacientes y evoluciones cifradas en tu dispositivo, y probá comunidades con aprobación de integrantes y permisos por rol.
               </p>
               <div class="cs-hero-cta">
                 <button class="btn btn-mint" onclick="Router.navigate('/crear-cuenta')">Empezar gratis ahora</button>
@@ -39,7 +39,7 @@ function renderLanding() {
               </div>
               <div class="cs-hero-tags">
                 <span>${Icons.check} Horarios al minuto</span>
-                <span>${Icons.check} Código de centro (ej. INTEGRARTE)</span>
+                <span>${Icons.check} Comunidades con aprobación</span>
                 <span>${Icons.check} Instalable en celular</span>
               </div>
             </div>
@@ -78,7 +78,7 @@ function renderLanding() {
             <article class="cs-feat-card">
               <div class="cs-feat-icon">${Icons.user}</div>
               <h3>Hecho para tu especialidad</h3>
-              <p>Elegí tu rol real al registrarte: Psicopedagogo/a, Psicólogo/a, Fonoaudiólogo/a, Terapeuta o Coach.</p>
+              <p>Elegí tu profesión al registrarte: Psicopedagogo/a, Psicólogo/a, Fonoaudiólogo/a, Terapeuta o Coach.</p>
             </article>
 
             <article class="cs-feat-card">
@@ -90,7 +90,7 @@ function renderLanding() {
             <article class="cs-feat-card">
               <div class="cs-feat-icon">${Icons.fileText}</div>
               <h3>Evolución de cada sesión</h3>
-              <p>Anotá qué trabajaste en el encuentro. Si otro colega del equipo atiende al mismo paciente, puede leer tu evolución.</p>
+              <p>Anotá qué trabajaste en cada encuentro. Las evoluciones se cifran y quedan en el espacio local de la cuenta.</p>
             </article>
 
             <article class="cs-feat-card">
@@ -108,38 +108,38 @@ function renderLanding() {
         </div>
       </section>
 
-      <!-- Community Privacy vs Shared Split -->
+      <!-- Community roles and approval -->
       <section class="cs-comm-band" id="comunidad">
         <div class="container cs-comm-grid">
           <div>
-            <div class="cs-eyebrow">Trabajo en equipo · Ej. Código INTEGRARTE</div>
+            <div class="cs-eyebrow">Trabajo en equipo · Solicitud y aprobación</div>
             <h2 style="font-size:2.1rem;font-weight:800;color:var(--green-900);line-height:1.15;margin-bottom:1rem">
-              Una comunidad para todo tu centro, cuidando la privacidad
+              Comunidades con roles y control de acceso
             </h2>
             <p style="color:var(--ink-2);margin-bottom:1.25rem;font-size:0.98rem">
-              Ingresando un código compartido, todos los profesionales del mismo lugar acceden al historial clínico del paciente en común, sin mezclar la administración personal de cada uno.
+              Un coordinador crea la comunidad, revisa quién solicita entrar y asigna roles. Esta demo guarda cuentas y solicitudes en el navegador actual; todavía no sincroniza datos entre dispositivos.
             </p>
             <button class="btn btn-primary" onclick="Router.navigate('/crear-cuenta')">Crear espacio para mi centro</button>
           </div>
 
           <div class="cs-privacy-cards">
             <div class="cs-priv-card cs-priv-card--shared">
-              <h4 style="color:var(--green-800)">${Icons.checkCircle} Visible en la comunidad</h4>
+              <h4 style="color:var(--green-800)">${Icons.checkCircle} Permisos por rol</h4>
               <ul>
-                <li>${Icons.check} Nombre y DNI del paciente</li>
-                <li>${Icons.check} Condición frente al CUD</li>
-                <li>${Icons.check} Obra Social / Particular</li>
-                <li>${Icons.check} Qué evolucionó cada profesional</li>
+                <li>${Icons.check} Coordinador: solicitudes y roles</li>
+                <li>${Icons.check} Profesional: edita fichas y evoluciones</li>
+                <li>${Icons.check} Analista: lectura clínica</li>
+                <li>${Icons.check} Recepcionista: agenda y directorio básico</li>
               </ul>
             </div>
 
             <div class="cs-priv-card">
-              <h4 style="color:var(--ink-2)">${Icons.lock} Privado (solo vos)</h4>
+              <h4 style="color:var(--ink-2)">${Icons.lock} Cifrado en el dispositivo</h4>
               <ul>
-                <li>• Quién pagó o debe la sesión</li>
-                <li>• Montos y cobros personales</li>
-                <li>• Tu agenda individual de turnos</li>
-                <li>• Notas personales privadas</li>
+                <li>• Fichas y evoluciones clínicas</li>
+                <li>• DNI y datos de contacto</li>
+                <li>• Agenda y cobros individuales</li>
+                <li>• Acceso desbloqueado con tu contraseña</li>
               </ul>
             </div>
           </div>
@@ -151,8 +151,8 @@ function renderLanding() {
         <div class="container">
           <div class="cs-section-head cs-section-head--center">
             <div class="cs-eyebrow">Simple desde el día uno</div>
-            <h2>Empezá solo o con todo tu equipo</h2>
-            <p>Podés probarlo hoy mismo sin tarjeta, o sumar a todos los profesionales de tu centro con un único código.</p>
+            <h2>Empezá con tu espacio individual</h2>
+            <p>Probá el registro y las funciones locales. Las solicitudes de comunidad requieren aprobación del coordinador, pero en esta demo no se sincronizan entre dispositivos.</p>
           </div>
 
           <div class="cs-access-grid">
@@ -171,16 +171,16 @@ function renderLanding() {
 
             <div class="cs-access-card cs-access-card--highlight">
               <div>
-                <span class="badge badge-green" style="margin-bottom:0.75rem">Ideal Centros · Ej. Integrarte</span>
-                <h3>Equipo & Comunidad</h3>
-                <p style="font-size:0.92rem">Un solo espacio conectado por código para que psicopedagogos, psicólogos y colegas compartan evoluciones.</p>
+                <span class="badge badge-green" style="margin-bottom:0.75rem">Prototipo local</span>
+                <h3>Roles & Comunidad</h3>
+                <p style="font-size:0.92rem">Probá códigos de invitación, aprobación de integrantes y administración de roles en el mismo navegador.</p>
                 <ul style="margin-top:1.25rem;display:flex;flex-direction:column;gap:0.55rem;font-size:0.9rem">
                   <li>${Icons.check} Todo lo del modo individual</li>
                   <li>${Icons.check} Código de comunidad del centro</li>
-                  <li>${Icons.check} Historial compartido con cobros ocultos</li>
+                  <li>${Icons.check} Fichas cifradas en cada cuenta local</li>
                 </ul>
               </div>
-              <button class="btn btn-mint" onclick="Router.navigate('/crear-cuenta')">Crear comunidad del centro</button>
+              <button class="btn btn-mint" onclick="Router.navigate('/crear-cuenta')">Crear cuenta individual</button>
             </div>
           </div>
         </div>
@@ -256,8 +256,8 @@ function renderHeroDemoScreen(tab) {
   return `
     <div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem">
-        <strong style="font-size:0.92rem;color:var(--green-900)">Comunidad: INTEGRARTE</strong>
-        <span class="badge badge-dark">2 colegas conectados</span>
+        <strong style="font-size:0.92rem;color:var(--green-900)">Ejemplo de comunidad</strong>
+        <span class="badge badge-dark">Vista ilustrativa</span>
       </div>
       <div style="background:var(--bg-page);padding:0.75rem;border-radius:var(--r-md);margin-bottom:0.6rem;border-left:3px solid var(--green-700)">
         <div style="font-size:0.72rem;font-weight:700;color:var(--green-800)">Ayer · Lic. Marcos Ruiz (Psicólogo)</div>
@@ -265,7 +265,7 @@ function renderHeroDemoScreen(tab) {
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:0.45rem;font-size:0.78rem;color:var(--ink-3);background:var(--bg-cream);padding:0.55rem 0.75rem;border-radius:var(--r-md);border:1px dashed var(--border-input)">
-      ${Icons.lock} Tus cobros y montos permanecen ocultos para la comunidad.
+      ${Icons.lock} Esta vista es ilustrativa; la demo no comparte datos entre cuentas.
     </div>`;
 }
 

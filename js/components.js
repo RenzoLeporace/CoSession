@@ -36,22 +36,22 @@ const Components = {
       </div>`;
   },
 
-  patientRow(patient) {
+  patientRow(patient, showClinicalDetails = true) {
     const color = getAvatarColor(patient.name);
     const initials = getInitials(patient.name);
     const typeLabel = patient.paymentType === 'obra_social' ? (patient.obraSocial ? `O.S. ${patient.obraSocial}` : 'Obra Social') : 'Particular';
     const typeBadge = patient.paymentType === 'obra_social' ? 'badge-blue' : 'badge-amber';
-    const cudBadge = patient.cud ? `<span class="badge badge-green">CUD</span>` : '';
+    const cudBadge = showClinicalDetails && patient.cud ? `<span class="badge badge-green">CUD</span>` : '';
 
     return `
-      <div class="patient-row" onclick="Router.navigate('/paciente/${patient.id}')">
+      <div class="patient-row" ${showClinicalDetails ? `onclick="Router.navigate('/paciente/${patient.id}')"` : ''}>
         <div class="patient-avatar patient-avatar--${color}">${initials}</div>
         <div class="patient-info">
           <div class="patient-name">${patient.name}</div>
-          <div class="patient-detail">DNI: ${patient.dni || 'Sin registrar'} ${patient.phone ? '· ' + patient.phone : ''}</div>
+          <div class="patient-detail">${showClinicalDetails ? `DNI: ${patient.dni || 'Sin registrar'} ${patient.phone ? '· ' + patient.phone : ''}` : 'Datos básicos'}</div>
         </div>
         <div class="patient-badges">
-          <span class="badge ${typeBadge}">${typeLabel}</span>
+          ${showClinicalDetails ? `<span class="badge ${typeBadge}">${typeLabel}</span>` : ''}
           ${cudBadge}
         </div>
       </div>`;
@@ -107,8 +107,10 @@ const Components = {
 
     const links = [
       { id: 'inicio', icon: Icons.home, label: 'Resumen', path: '/app' },
-      { id: 'agenda', icon: Icons.calendar, label: 'Agenda', path: '/agenda' },
-      { id: 'pacientes', icon: Icons.users, label: 'Pacientes', path: '/pacientes' },
+      ...(DB.can('manage_agenda', user) ? [{ id: 'agenda', icon: Icons.calendar, label: 'Agenda', path: '/agenda' }] : []),
+      ...(DB.can('manage_patients', user) || DB.can('view_patients', user) || DB.can('view_clinical', user)
+        ? [{ id: 'pacientes', icon: Icons.users, label: 'Pacientes', path: '/pacientes' }]
+        : []),
       { id: 'comunidad', icon: Icons.community, label: 'Comunidad', path: '/comunidad' },
     ];
 
@@ -134,7 +136,7 @@ const Components = {
                 <div class="app-user-avatar">${getInitials(user.name)}</div>
                 <div class="app-user-meta">
                   <span class="app-user-name">${user.name}</span>
-                  <span class="app-user-role">${user.profession || 'Profesional'}</span>
+                  <span class="app-user-role">${user.profession || 'Profesional'} · ${user.communityRole || 'Individual'}</span>
                 </div>
                 ${Icons.logout}
               </div>
@@ -170,9 +172,13 @@ function showInstallAppModal() {
   document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-function handleLogout() {
+async function handleLogout() {
   if (confirm('¿Querés cerrar sesión?')) {
-    DB.logout();
-    Router.navigate('/');
+    try {
+      await DB.logout();
+      Router.navigate('/');
+    } catch (error) {
+      showToast(error.message || 'No se pudo cerrar la sesión de forma segura', 'error');
+    }
   }
 }
